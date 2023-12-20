@@ -70,7 +70,7 @@ const showingNavigationDropdown = ref(false);
 
                                     <template #content>
                                         <DropdownLink
-                                            href="/logout"
+                                            :href="route('logout')"
                                             method="post"
                                             as="button"
                                         >
