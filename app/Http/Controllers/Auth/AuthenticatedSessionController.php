@@ -9,11 +9,20 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Inertia\Response;
-
+use Kreait\Firebase\Contract\Auth as FirebaseAuth; 
+use Illuminate\Validation\ValidationException;
 class AuthenticatedSessionController extends Controller
 {
+    protected $authFirebase;
+
+    public function __construct(FirebaseAuth $auth)
+    {
+        $this->middleware('guest')->except('logout');
+        $this->authFirebase = $auth;
+    }
     /**
      * Display the login view.
      */
@@ -28,13 +37,31 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
-        $request->authenticate();
+        //$request->authenticate();
 
-        $request->session()->regenerate();
+        //$request->session()->regenerate();
 
-        return redirect()->intended(RouteServiceProvider::HOME);
+        //return redirect()->intended(RouteServiceProvider::HOME);
+
+        $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+ 
+        try {
+            $signInResult = $this->authFirebase->signInWithEmailAndPassword($request["email"], $request["password"]);
+    
+            $loginuid = $signInResult->firebaseUserId();
+            Session::put('uid',$loginuid);
+
+            return redirect()->intended(RouteServiceProvider::HOME);
+        } catch (\Kreait\Firebase\Auth\SignIn\FailedToSignIn $e) {
+            throw ValidationException::withMessages([
+            'email' => [trans("auth.failed")],
+            ]);
+        }
     }
 
     /**
@@ -42,12 +69,8 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
+        Session::flush();
 
-        $request->session()->invalidate();
-
-        $request->session()->regenerateToken();
-
-        return redirect('/');
+        return redirect('/login');
     }
 }
