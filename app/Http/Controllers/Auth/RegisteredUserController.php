@@ -10,12 +10,22 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
+use Kreait\Firebase\Exception\FirebaseException;
+use Kreait\Firebase\Contract\Auth as FirebaseAuth; 
 
 class RegisteredUserController extends Controller
 {
+    protected $authFirebase;
+
+    public function __construct(FirebaseAuth $auth)
+    {
+        $this->middleware('guest');
+        $this->authFirebase = $auth;
+    }
     /**
      * Display the registration view.
      */
@@ -33,11 +43,11 @@ class RegisteredUserController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
+            'email' => 'required|string|lowercase|email|max:255',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $user = User::create([
+        /*$user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
@@ -45,7 +55,23 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        Auth::login($user);
+        Auth::login($user);*/
+
+        try {
+            $userProperties = [
+                'email' => $request->input('email'),
+                'emailVerified' => false,
+                'password' => $request->input('password'),
+                'displayName' => $request->input('name'),
+                'disabled' => false,
+            ];
+            $this->authFirebase->createUser($userProperties);
+            $this->authFirebase->sendEmailVerificationLink($request->input('email'));
+            return redirect()->route('login');
+        } catch (FirebaseException $e) {
+            Session::flash('error', $e->getMessage());
+            return back()->withInput();
+        }
 
         return redirect(RouteServiceProvider::HOME);
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -25,9 +26,8 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['fireauth'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['fireauth'])->name('dashboard');
+Route::get('/dashboard/digimon/{id}', [DashboardController::class, 'find'])->middleware(['fireauth'])->name('digimon');
 
 /*
 Route::middleware('auth')->group(function () {

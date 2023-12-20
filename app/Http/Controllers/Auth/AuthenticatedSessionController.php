@@ -54,12 +54,20 @@ class AuthenticatedSessionController extends Controller
             $signInResult = $this->authFirebase->signInWithEmailAndPassword($request["email"], $request["password"]);
     
             $loginuid = $signInResult->firebaseUserId();
-            Session::put('uid',$loginuid);
-
-            return redirect()->intended(RouteServiceProvider::HOME);
+            $user = $this->authFirebase->getUser($loginuid);
+            $verify = $user->emailVerified;
+            if ($verify == 1) {
+                Session::put('uid',$loginuid);
+                return redirect()->intended(RouteServiceProvider::HOME);
+            }else{
+                //$this->authFirebase->sendEmailVerificationLink($request["email"]);
+                throw ValidationException::withMessages([
+                    'email' => ["Debe de verificar el email."],
+                ]);
+            }
         } catch (\Kreait\Firebase\Auth\SignIn\FailedToSignIn $e) {
             throw ValidationException::withMessages([
-            'email' => [trans("auth.failed")],
+                'email' => [trans("auth.failed")],
             ]);
         }
     }
